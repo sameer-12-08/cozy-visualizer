@@ -83,7 +83,7 @@ function App() {
   const [viz, setViz] = useState<"bars" | "embers">("bars");
   useEffect(() => { const v = localStorage.getItem("qm-viz"); if (v === "embers") setViz(v); }, []);
   useEffect(() => { localStorage.setItem("qm-viz", viz); }, [viz]);
-  const Visualizer = ({ playing, bars, ambient }: { playing: boolean; bars?: number; ambient?: boolean }) =>
+  const Visualizer = ({ playing, bars, ambient = false }: { playing: boolean; bars?: number; ambient?: boolean }) =>
     viz === "bars" ? <Bars playing={playing} bars={bars ?? 48} ambient={ambient} /> : <Embers playing={playing} count={Math.max(30, (bars ?? 48))} ambient={ambient} />;
   const VizToggle = () => (
     <button onClick={() => setViz(viz === "bars" ? "embers" : "bars")} title={`Visualizer: ${viz === "bars" ? "Bars" : "Embers"} (V)`}
