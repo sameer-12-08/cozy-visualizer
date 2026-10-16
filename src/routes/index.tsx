@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { Visualizer } from "@/components/Visualizer";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { SkipBack, SkipForward, Play, Pause, Music, Disc3, Mic2, Folder, Flame, Search, ListMusic, Plus, Palette, Volume2, CornerDownRight, X, ArrowUp, Minimize2, Maximize2 } from "lucide-react";
 
@@ -201,6 +202,7 @@ function App() {
         <div className="glass window-shadow w-80 overflow-hidden rounded-xl">
           <div className="flex items-center justify-between px-3 py-2"><Lights onGreen={() => setMode("full")} />
             <button onClick={() => setMode("window")} className="text-xs text-sub hover:text-foreground">Expand ⤢</button></div>
+          <div className="h-8 px-4 pb-2"><Visualizer playing={playing} bars={28} /></div>
           <div className="flex items-center gap-3 px-4 pb-3"><Art album={cur.album} size={56} />
             <div className="min-w-0"><div className="truncate text-sm font-medium">{cur.title}</div><div className="truncate text-xs text-sub">{cur.artist} — {cur.album}</div></div></div>
           <div className="space-y-3 px-4 pb-4"><Seek /><div className="flex justify-center"><Controls /></div></div>
@@ -217,6 +219,7 @@ function App() {
         <div className="w-[420px] space-y-8">
           <div><div className="text-4xl font-semibold">{cur.title}</div><div className="mt-2 text-xl text-sub">{cur.artist} — {cur.album}</div>
             <div className="mt-2 font-mono text-xs text-caption">{cur.fmt}</div></div>
+          <div className="h-20"><Visualizer playing={playing} bars={40} /></div>
           <Seek /><Controls big />
           <div className="text-xs text-sub">Up next: {queue[0]?.title ?? "—"}</div>
         </div>
@@ -256,7 +259,8 @@ function App() {
         <main className="relative flex min-w-0 flex-1 flex-col">
           <header className="relative overflow-hidden border-b px-6 py-5"
             style={{ background: `linear-gradient(120deg, color-mix(in oklab, var(--main) 18%, transparent), transparent 70%)` }}>
-            <div className="flex items-end justify-between gap-4">
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 opacity-60"><Visualizer playing={playing} bars={64} /></div>
+            <div className="relative flex items-end justify-between gap-4">
               <div>
                 <div className="text-[11px] font-semibold uppercase tracking-widest text-sub">Library</div>
                 <h1 className="mt-1 text-3xl font-bold tracking-tight text-caption">{view}</h1>
