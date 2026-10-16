@@ -73,7 +73,7 @@ export function EqPopover({ onClose }: { onClose: () => void }) {
   );
 }
 
-/** "24-bit / 96 kHz • Bit-perfect" from "FLAC 24/96". */
+/** "24-bit / 96 kHz" from "FLAC 24/96". */
 export function AudioBadge({ fmt, playing }: { fmt: string; playing: boolean }) {
   const [codec, spec] = fmt.split(" ");
   const [bits, rate] = (spec ?? "16/44").split("/");
@@ -81,7 +81,7 @@ export function AudioBadge({ fmt, playing }: { fmt: string; playing: boolean }) 
   return (
     <span className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 font-mono text-[10px] text-sub">
       <span className={`h-1.5 w-1.5 rounded-full ${playing ? "bg-main shadow-[0_0_6px_var(--main)]" : "bg-sub"}`} />
-      {codec} · {bits}-bit / {khz} kHz <span className="text-main">• Bit-perfect</span>
+      {codec} · {bits}-bit / {khz} kHz
     </span>
   );
 }

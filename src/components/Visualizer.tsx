@@ -1,8 +1,9 @@
 import { useEffect, useRef } from "react";
 
 /** Minimal bar visualizer. Bars dance while playing and swell toward the mouse pointer.
+ *  In `ambient` mode it stays calm: no beat swell and no pointer reaction.
  *  Colours come from the theme's --main / --sub CSS variables, so it follows the selected theme. */
-export function Visualizer({ playing, bars = 48, className = "" }: { playing: boolean; bars?: number; className?: string }) {
+export function Visualizer({ playing, bars = 48, ambient = false, className = "" }: { playing: boolean; bars?: number; ambient?: boolean; className?: string }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const playRef = useRef(playing);
   playRef.current = playing;
