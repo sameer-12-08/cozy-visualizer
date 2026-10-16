@@ -1,8 +1,9 @@
 import { useEffect, useRef } from "react";
 
 /** Ambient Stardust / Floating Embers: soft glowing particles drifting upward.
- *  Particles flee gently from the pointer; speed and glow rise while playing. Colours from theme vars. */
-export function Embers({ playing, count = 60, className = "" }: { playing: boolean; count?: number; className?: string }) {
+ *  Particles flee gently from the pointer; speed and glow rise while playing.
+ *  In `ambient` mode they drift at a fixed calm pace and ignore the pointer. Colours from theme vars. */
+export function Embers({ playing, count = 60, ambient = false, className = "" }: { playing: boolean; count?: number; ambient?: boolean; className?: string }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const playRef = useRef(playing);
   playRef.current = playing;
@@ -15,7 +16,7 @@ export function Embers({ playing, count = 60, className = "" }: { playing: boole
       x: Math.random(), y: Math.random(), vx: 0, vy: 0, r: 0.6 + Math.random() * 1.8, p: Math.random() * 6.28, hot: Math.random() < 0.6,
     }));
     const move = (e: PointerEvent) => { const r = c.getBoundingClientRect(); mx = e.clientX - r.left; my = e.clientY - r.top; };
-    window.addEventListener("pointermove", move);
+    if (!ambient) window.addEventListener("pointermove", move);
 
     const draw = (time: number) => {
       const dpr = window.devicePixelRatio || 1;
@@ -26,7 +27,7 @@ export function Embers({ playing, count = 60, className = "" }: { playing: boole
       const cs = getComputedStyle(c);
       const main = cs.getPropertyValue("--main").trim() || "#e2b714";
       const cap = cs.getPropertyValue("--caption").trim() || main;
-      energy += ((playRef.current ? 1 : 0.25) - energy) * 0.03;
+      energy += ((ambient ? 0.45 : playRef.current ? 1 : 0.25) - energy) * 0.03;
       const t = time / 1000;
       ctx.globalCompositeOperation = "lighter";
       for (const p of ps) {
@@ -54,7 +55,7 @@ export function Embers({ playing, count = 60, className = "" }: { playing: boole
     };
     raf = requestAnimationFrame(draw);
     return () => { cancelAnimationFrame(raf); window.removeEventListener("pointermove", move); };
-  }, [count]);
+  }, [count, ambient]);
 
   return <canvas ref={ref} aria-hidden className={`block h-full w-full ${className}`} />;
 }
