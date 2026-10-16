@@ -65,6 +65,24 @@ function Art({ album, size = 40 }: { album: string; size?: number }) {
   );
 }
 
+type Viz = "bars" | "embers";
+
+/** Module-level on purpose: if it were declared inside App() it would get a new
+ *  component identity on every render, unmounting the canvas each second as the
+ *  playback timer ticks (visible as the visualizer blanking and restarting). */
+function Visualizer({ viz, playing, bars, ambient = false }: {
+  viz: Viz;
+  playing: boolean;
+  bars?: number;
+  ambient?: boolean;
+}) {
+  return viz === "bars" ? (
+    <Bars playing={playing} bars={bars ?? 48} ambient={ambient} />
+  ) : (
+    <Embers playing={playing} count={Math.max(30, bars ?? 48)} ambient={ambient} />
+  );
+}
+
 function App() {
   const [theme, setTheme] = useState(0);
   const [hoverTheme, setHoverTheme] = useState<number | null>(null);
@@ -80,11 +98,9 @@ function App() {
   const [themeOpen, setThemeOpen] = useState(false);
   const [toast, setToast] = useState("");
   const [eqOpen, setEqOpen] = useState(false);
-  const [viz, setViz] = useState<"bars" | "embers">("bars");
+  const [viz, setViz] = useState<Viz>("bars");
   useEffect(() => { const v = localStorage.getItem("qm-viz"); if (v === "embers") setViz(v); }, []);
   useEffect(() => { localStorage.setItem("qm-viz", viz); }, [viz]);
-  const Visualizer = ({ playing, bars, ambient = false }: { playing: boolean; bars?: number; ambient?: boolean }) =>
-    viz === "bars" ? <Bars playing={playing} bars={bars ?? 48} ambient={ambient} /> : <Embers playing={playing} count={Math.max(30, (bars ?? 48))} ambient={ambient} />;
   const VizToggle = () => (
     <button onClick={() => setViz(viz === "bars" ? "embers" : "bars")} title={`Visualizer: ${viz === "bars" ? "Bars" : "Embers"} (V)`}
       className="flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs text-sub transition hover:border-main hover:text-main">
@@ -221,7 +237,7 @@ function App() {
             <div className={`h-10 w-10 shrink-0 rounded-full ${playing ? "animate-[spin_6s_linear_infinite]" : ""}`}
               style={{ background: `radial-gradient(circle, var(--bg) 0 12%, transparent 13%), ${artBg(cur.album)}` }} />
             <div className="min-w-0 flex-1"><div className="truncate text-sm font-medium">{cur.title}</div><div className="truncate text-[11px] text-sub">{cur.artist}</div></div>
-            <div className="h-6 w-14"><Visualizer playing={playing} bars={10} /></div>
+            <div className="h-6 w-14"><Visualizer viz={viz} playing={playing} bars={10} /></div>
             <button onClick={() => setPlaying(!playing)} className="grid h-9 w-9 place-items-center rounded-full bg-main text-background">{playing ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" className="ml-0.5" />}</button>
           </div>
           <div className="grid grid-rows-[0fr] transition-all duration-500 group-hover/island:grid-rows-[1fr]">
@@ -249,7 +265,7 @@ function App() {
       <div style={vars} className="relative flex min-h-screen flex-col overflow-hidden bg-background p-8 sm:p-16">
         <div className="pointer-events-none absolute inset-0 transition-[background] duration-1000"
           style={{ background: `radial-gradient(60% 50% at 20% 30%, hsl(${h} 60% 45% / 0.35), transparent 70%), radial-gradient(50% 40% at 85% 80%, color-mix(in oklab, var(--main) 25%, transparent), transparent 70%)` }} />
-        <div className="pointer-events-none absolute inset-0 opacity-70"><Visualizer playing={playing} bars={80} ambient /></div>
+        <div className="pointer-events-none absolute inset-0 opacity-70"><Visualizer viz={viz} playing={playing} bars={80} ambient /></div>
         <div className="relative flex items-center justify-between font-mono text-xs text-sub">
           <span>quickmusic / now playing</span>
           <div className="flex items-center gap-3"><VizToggle /><button onClick={() => setMode("window")} className="hover:text-foreground">esc</button></div>
@@ -302,7 +318,7 @@ function App() {
         <main className="relative flex min-w-0 flex-1 flex-col">
           <header className="titlebar relative overflow-hidden border-b px-6 py-7"
             style={{ background: `linear-gradient(120deg, color-mix(in oklab, var(--main) 18%, transparent), transparent 70%)` }}>
-            <div className={`pointer-events-none absolute inset-x-0 bottom-0 ${viz === "bars" ? "h-16 opacity-60" : "top-0 opacity-90"}`}><Visualizer playing={playing} bars={64} /></div>
+            <div className={`pointer-events-none absolute inset-x-0 bottom-0 ${viz === "bars" ? "h-16 opacity-60" : "top-0 opacity-90"}`}><Visualizer viz={viz} playing={playing} bars={64} /></div>
             <div className="relative flex items-end justify-between gap-4">
               <div>
                 <div className="text-[11px] font-semibold uppercase tracking-widest text-sub">Library</div>
