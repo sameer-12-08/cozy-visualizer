@@ -95,7 +95,7 @@ function Seek({ pos, dur, onSeek }: { pos: number; dur: number; onSeek: (v: numb
             style={{ left: hov.x }}>{fmt(hov.t)}</div>
         )}
         <input type="range" min={0} max={Math.max(dur, 1)} value={Math.min(pos, dur)} onChange={(e) => onSeek(+e.target.value)}
-          onMouseMove={(e) => { const r = e.currentTarget.getBoundingClientRect(); const ratio = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)); setHov({ x: ratio * r.width, t: Math.round(ratio * dur) }); }}
+          onMouseMove={(e) => { const r = e.currentTarget.getBoundingClientRect(); if (r.width <= 0 || dur <= 0) return; const ratio = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)); setHov({ x: ratio * r.width, t: Math.round(ratio * dur) }); }}
           onMouseLeave={() => setHov(null)}
           className="w-full accent-[var(--main)]" />
       </div>
