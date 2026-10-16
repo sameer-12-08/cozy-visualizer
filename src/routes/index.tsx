@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Visualizer } from "@/components/Visualizer";
+import { Visualizer as Bars } from "@/components/Visualizer";
+import { Embers } from "@/components/Embers";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { SkipBack, SkipForward, Play, Pause, Music, Disc3, Mic2, Folder, Flame, Search, ListMusic, Plus, Palette, Volume2, CornerDownRight, X, ArrowUp, Minimize2, Maximize2 } from "lucide-react";
+import { SkipBack, SkipForward, Play, Pause, Music, Disc3, Mic2, Folder, Flame, Search, ListMusic, Plus, Palette, Volume2, CornerDownRight, X, ArrowUp, Minimize2, Maximize2, Sparkles, AudioLines } from "lucide-react";
 
 const VIEW_ICONS = { Songs: Music, Albums: Disc3, Artists: Mic2, Folders: Folder, "Most Played": Flame } as const;
 
@@ -78,6 +79,17 @@ function App() {
   const [mode, setMode] = useState<"window" | "mini" | "full">("window");
   const [themeOpen, setThemeOpen] = useState(false);
   const [toast, setToast] = useState("");
+  const [viz, setViz] = useState<"bars" | "embers">("bars");
+  useEffect(() => { const v = localStorage.getItem("qm-viz"); if (v === "embers") setViz(v); }, []);
+  useEffect(() => { localStorage.setItem("qm-viz", viz); }, [viz]);
+  const Visualizer = ({ playing, bars }: { playing: boolean; bars?: number }) =>
+    viz === "bars" ? <Bars playing={playing} bars={bars ?? 48} /> : <Embers playing={playing} count={Math.max(30, (bars ?? 48))} />;
+  const VizToggle = () => (
+    <button onClick={() => setViz(viz === "bars" ? "embers" : "bars")} title={`Visualizer: ${viz === "bars" ? "Bars" : "Embers"} (V)`}
+      className="flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs text-sub transition hover:border-main hover:text-main">
+      {viz === "bars" ? <AudioLines size={14} /> : <Sparkles size={14} />}<span className="hidden sm:inline">{viz === "bars" ? "Bars" : "Embers"}</span>
+    </button>
+  );
   const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { const t = localStorage.getItem("qm-theme"); if (t) setTheme(+t); }, []);
@@ -104,6 +116,7 @@ function App() {
       else if (e.key === "Escape") { searchRef.current?.blur(); if (mode === "full") setMode("window"); setThemeOpen(false); }
       else if (e.key === "F8" || (e.key === " " && !typing)) { e.preventDefault(); setPlaying((p) => !p); }
       else if (e.key === "F9") next();
+      else if ((e.key === "v" || e.key === "V") && !typing) setViz((v) => (v === "bars" ? "embers" : "bars"));
       else if (e.key === "F7") prev();
     };
     window.addEventListener("keydown", k);
@@ -199,10 +212,10 @@ function App() {
   if (mode === "mini")
     return (
       <div style={vars} className="grid min-h-screen place-items-center">
-        <div className="glass window-shadow w-80 overflow-hidden rounded-xl">
+        <div className="glass window-shadow window-highlight w-80 overflow-hidden rounded-2xl">
           <div className="flex items-center justify-between px-3 py-2"><Lights onGreen={() => setMode("full")} />
-            <button onClick={() => setMode("window")} className="text-xs text-sub hover:text-foreground">Expand ⤢</button></div>
-          <div className="h-8 px-4 pb-2"><Visualizer playing={playing} bars={28} /></div>
+            <div className="flex items-center gap-2"><button onClick={() => setViz(viz === "bars" ? "embers" : "bars")} title="Switch visualizer" className="text-sub hover:text-main">{viz === "bars" ? <AudioLines size={13} /> : <Sparkles size={13} />}</button><button onClick={() => setMode("window")} className="text-xs text-sub hover:text-foreground">Expand ⤢</button></div></div>
+          <div className={`px-4 pb-2 ${viz === "bars" ? "h-8" : "h-14"}`}><Visualizer playing={playing} bars={28} /></div>
           <div className="flex items-center gap-3 px-4 pb-3"><Art album={cur.album} size={56} />
             <div className="min-w-0"><div className="truncate text-sm font-medium">{cur.title}</div><div className="truncate text-xs text-sub">{cur.artist} — {cur.album}</div></div></div>
           <div className="space-y-3 px-4 pb-4"><Seek /><div className="flex justify-center"><Controls /></div></div>
@@ -214,8 +227,8 @@ function App() {
     return (
       <div style={{ ...vars, background: `radial-gradient(circle at 30% 30%, hsl(${hue(cur.album)} 50% 30%), var(--bg) 70%)` }}
         className="flex min-h-screen items-center justify-center gap-16 p-16">
-        <button onClick={() => setMode("window")} className="absolute right-6 top-6 text-sm text-sub hover:text-foreground">Exit ⎋</button>
-        <Art album={cur.album} size={420} />
+        <div className="absolute right-6 top-6 flex items-center gap-3"><VizToggle /><button onClick={() => setMode("window")} className="text-sm text-sub hover:text-foreground">Exit ⎋</button></div>
+        <div className="rounded-2xl shadow-2xl ring-1 ring-foreground/10"><Art album={cur.album} size={420} /></div>
         <div className="w-[420px] space-y-8">
           <div><div className="text-4xl font-semibold">{cur.title}</div><div className="mt-2 text-xl text-sub">{cur.artist} — {cur.album}</div>
             <div className="mt-2 font-mono text-xs text-caption">{cur.fmt}</div></div>
@@ -229,7 +242,7 @@ function App() {
   const totalMin = Math.round(filtered.reduce((a, s) => a + s.dur, 0) / 60);
   return (
     <div style={vars} className="flex min-h-screen items-center justify-center p-2 sm:p-8">
-      <div className="window-shadow flex h-[min(760px,calc(100vh-2rem))] w-full max-w-[1200px] overflow-hidden rounded-xl bg-background">
+      <div className="window-shadow window-highlight flex h-[min(760px,calc(100vh-2rem))] w-full max-w-[1200px] overflow-hidden rounded-2xl bg-background">
         {/* Sidebar */}
         <aside className="glass hidden w-56 shrink-0 flex-col border-r p-3 sm:flex">
           <Lights onGreen={() => setMode("full")} />
@@ -257,9 +270,9 @@ function App() {
 
         {/* Main */}
         <main className="relative flex min-w-0 flex-1 flex-col">
-          <header className="relative overflow-hidden border-b px-6 py-5"
+          <header className="relative overflow-hidden border-b px-6 py-7"
             style={{ background: `linear-gradient(120deg, color-mix(in oklab, var(--main) 18%, transparent), transparent 70%)` }}>
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 opacity-60"><Visualizer playing={playing} bars={64} /></div>
+            <div className={`pointer-events-none absolute inset-x-0 bottom-0 ${viz === "bars" ? "h-16 opacity-60" : "top-0 opacity-90"}`}><Visualizer playing={playing} bars={64} /></div>
             <div className="relative flex items-end justify-between gap-4">
               <div>
                 <div className="text-[11px] font-semibold uppercase tracking-widest text-sub">Library</div>
@@ -267,6 +280,7 @@ function App() {
                 <div className="mt-1 font-mono text-xs text-sub">{filtered.length} songs · {totalMin} min · lossless</div>
               </div>
               <div className="flex items-center gap-2">
+                <VizToggle />
                 <button onClick={() => { if (filtered[0]) { play(filtered[0]); setQueue(filtered.slice(1)); } }}
                   className="flex items-center gap-1.5 rounded-full bg-main px-4 py-1.5 text-sm font-medium text-background transition hover:scale-105"><Play size={14} fill="currentColor" />Play</button>
                 <button onClick={() => setShowQueue(!showQueue)} title="Queue"
