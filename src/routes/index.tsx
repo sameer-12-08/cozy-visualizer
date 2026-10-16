@@ -83,7 +83,7 @@ function App() {
   useEffect(() => { const v = localStorage.getItem("qm-viz"); if (v === "embers") setViz(v); }, []);
   useEffect(() => { localStorage.setItem("qm-viz", viz); }, [viz]);
   const Visualizer = ({ playing, bars }: { playing: boolean; bars?: number }) =>
-    viz === "bars" ? <Bars playing={playing} bars={bars} /> : <Embers playing={playing} count={Math.max(30, (bars ?? 48))} />;
+    viz === "bars" ? <Bars playing={playing} bars={bars ?? 48} /> : <Embers playing={playing} count={Math.max(30, (bars ?? 48))} />;
   const VizToggle = () => (
     <button onClick={() => setViz(viz === "bars" ? "embers" : "bars")} title={`Visualizer: ${viz === "bars" ? "Bars" : "Embers"} (V)`}
       className="flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs text-sub transition hover:border-main hover:text-main">
