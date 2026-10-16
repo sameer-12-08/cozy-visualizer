@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Visualizer as Bars } from "@/components/Visualizer";
 import { Embers } from "@/components/Embers";
+import { hue, artBg, VinylArt, VuMeter, EqPopover, AudioBadge } from "@/components/Extras";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { SkipBack, SkipForward, Play, Pause, Music, Disc3, Mic2, Folder, Flame, Search, ListMusic, Plus, Palette, Volume2, CornerDownRight, X, ArrowUp, Minimize2, Maximize2, Sparkles, AudioLines } from "lucide-react";
+import { SkipBack, SkipForward, Play, Pause, Music, Disc3, Mic2, Folder, Flame, Search, ListMusic, Plus, Palette, Volume2, CornerDownRight, X, ArrowUp, Minimize2, Maximize2, Sparkles, AudioLines, SlidersHorizontal } from "lucide-react";
 
 const VIEW_ICONS = { Songs: Music, Albums: Disc3, Artists: Mic2, Folders: Folder, "Most Played": Flame } as const;
 
@@ -52,7 +53,6 @@ const RAW: [string, string, string, number, string][] = [
 const SONGS: Song[] = RAW.map(([title, artist, album, dur, fmt], i) => ({
   id: i, title, artist, album, dur, fmt, folder: `~/Music/${artist}/${album}`, plays: (i * 37) % 90 + 3,
 }));
-const hue = (s: string) => [...s].reduce((a, c) => a + c.charCodeAt(0), 0) % 360;
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
 type View = "Songs" | "Albums" | "Artists" | "Folders" | "Most Played";
@@ -79,6 +79,7 @@ function App() {
   const [mode, setMode] = useState<"window" | "mini" | "full">("window");
   const [themeOpen, setThemeOpen] = useState(false);
   const [toast, setToast] = useState("");
+  const [eqOpen, setEqOpen] = useState(false);
   const [viz, setViz] = useState<"bars" | "embers">("bars");
   useEffect(() => { const v = localStorage.getItem("qm-viz"); if (v === "embers") setViz(v); }, []);
   useEffect(() => { localStorage.setItem("qm-viz", viz); }, [viz]);
@@ -153,10 +154,13 @@ function App() {
     </div>
   );
   const Lights = ({ onGreen }: { onGreen?: () => void }) => (
-    <div className="flex gap-2">
-      <span className="h-3 w-3 rounded-full" style={{ background: "#ff5f57" }} />
-      <span onClick={() => setMode("mini")} className="h-3 w-3 cursor-pointer rounded-full" title="Mini player" style={{ background: "#febc2e" }} />
-      <span onClick={onGreen} className="h-3 w-3 cursor-pointer rounded-full" title="Full screen" style={{ background: "#28c840" }} />
+    <div className="group/lights flex gap-2">
+      {([["#ff5f57", "×", () => flash("Close — app keeps playing in menu bar"), "Close"], ["#febc2e", "−", () => setMode("mini"), "Mini player"], ["#28c840", "+", onGreen, "Full screen"]] as const).map(([c, sym, fn, label]) => (
+        <button key={label} onClick={fn} title={label} aria-label={label}
+          className="grid h-3 w-3 place-items-center rounded-full text-[9px] font-bold leading-none shadow-[inset_0_0_0_0.5px_oklch(0_0_0/0.25)]" style={{ background: c }}>
+          <span className="opacity-0 transition group-hover/lights:opacity-100" style={{ color: "oklch(0 0 0 / 0.55)" }}>{sym}</span>
+        </button>
+      ))}
     </div>
   );
 
@@ -211,33 +215,59 @@ function App() {
 
   if (mode === "mini")
     return (
-      <div style={vars} className="grid min-h-screen place-items-center">
-        <div className="glass window-shadow window-highlight w-80 overflow-hidden rounded-2xl">
-          <div className="flex items-center justify-between px-3 py-2"><Lights onGreen={() => setMode("full")} />
-            <div className="flex items-center gap-2"><button onClick={() => setViz(viz === "bars" ? "embers" : "bars")} title="Switch visualizer" className="text-sub hover:text-main">{viz === "bars" ? <AudioLines size={13} /> : <Sparkles size={13} />}</button><button onClick={() => setMode("window")} className="text-xs text-sub hover:text-foreground">Expand ⤢</button></div></div>
-          <div className={`px-4 pb-2 ${viz === "bars" ? "h-8" : "h-14"}`}><Visualizer playing={playing} bars={28} /></div>
-          <div className="flex items-center gap-3 px-4 pb-3"><Art album={cur.album} size={56} />
-            <div className="min-w-0"><div className="truncate text-sm font-medium">{cur.title}</div><div className="truncate text-xs text-sub">{cur.artist} — {cur.album}</div></div></div>
-          <div className="space-y-3 px-4 pb-4"><Seek /><div className="flex justify-center"><Controls /></div></div>
+      <div style={vars} className="grid min-h-screen place-items-start justify-center pt-10">
+        <div className="island group/island window-shadow flex w-[min(92vw,26rem)] flex-col overflow-hidden rounded-[2rem] p-2 transition-all duration-500">
+          <div className="flex items-center gap-3">
+            <div className={`h-10 w-10 shrink-0 rounded-full ${playing ? "animate-[spin_6s_linear_infinite]" : ""}`}
+              style={{ background: `radial-gradient(circle, var(--bg) 0 12%, transparent 13%), ${artBg(cur.album)}` }} />
+            <div className="min-w-0 flex-1"><div className="truncate text-sm font-medium">{cur.title}</div><div className="truncate text-[11px] text-sub">{cur.artist}</div></div>
+            <div className="h-6 w-14"><Visualizer playing={playing} bars={10} /></div>
+            <button onClick={() => setPlaying(!playing)} className="grid h-9 w-9 place-items-center rounded-full bg-main text-background">{playing ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" className="ml-0.5" />}</button>
+          </div>
+          <div className="grid grid-rows-[0fr] transition-all duration-500 group-hover/island:grid-rows-[1fr]">
+            <div className="min-h-0 overflow-hidden">
+              <div className="space-y-3 px-2 pb-2 pt-4">
+                <Seek />
+                <div className="flex items-center justify-between">
+                  <AudioBadge fmt={cur.fmt} playing={playing} />
+                  <Controls />
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => setViz(viz === "bars" ? "embers" : "bars")} title="Switch visualizer" className="text-sub hover:text-main">{viz === "bars" ? <AudioLines size={14} /> : <Sparkles size={14} />}</button>
+                    <button onClick={() => setMode("window")} title="Expand" className="text-sub hover:text-foreground"><Maximize2 size={14} /></button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
 
-  if (mode === "full")
+  if (mode === "full") {
+    const h = hue(cur.album);
     return (
-      <div style={{ ...vars, background: `radial-gradient(circle at 30% 30%, hsl(${hue(cur.album)} 50% 30%), var(--bg) 70%)` }}
-        className="flex min-h-screen items-center justify-center gap-16 p-16">
-        <div className="absolute right-6 top-6 flex items-center gap-3"><VizToggle /><button onClick={() => setMode("window")} className="text-sm text-sub hover:text-foreground">Exit ⎋</button></div>
-        <div className="rounded-2xl shadow-2xl ring-1 ring-foreground/10"><Art album={cur.album} size={420} /></div>
-        <div className="w-[420px] space-y-8">
-          <div><div className="text-4xl font-semibold">{cur.title}</div><div className="mt-2 text-xl text-sub">{cur.artist} — {cur.album}</div>
-            <div className="mt-2 font-mono text-xs text-caption">{cur.fmt}</div></div>
-          <div className="h-20"><Visualizer playing={playing} bars={40} /></div>
-          <Seek /><Controls big />
-          <div className="text-xs text-sub">Up next: {queue[0]?.title ?? "—"}</div>
+      <div style={vars} className="relative flex min-h-screen flex-col overflow-hidden bg-background p-8 sm:p-16">
+        <div className="pointer-events-none absolute inset-0 transition-[background] duration-1000"
+          style={{ background: `radial-gradient(60% 50% at 20% 30%, hsl(${h} 60% 45% / 0.35), transparent 70%), radial-gradient(50% 40% at 85% 80%, color-mix(in oklab, var(--main) 25%, transparent), transparent 70%)` }} />
+        <div className="pointer-events-none absolute inset-0 opacity-70"><Visualizer playing={playing} bars={80} /></div>
+        <div className="relative flex items-center justify-between font-mono text-xs text-sub">
+          <span>quickmusic / now playing</span>
+          <div className="flex items-center gap-3"><VizToggle /><button onClick={() => setMode("window")} className="hover:text-foreground">esc</button></div>
+        </div>
+        <div className="relative my-auto max-w-5xl">
+          <div className="font-mono text-sm text-caption">{cur.artist.toLowerCase()} — {cur.album.toLowerCase()}</div>
+          <h1 className="mt-3 font-mono text-5xl font-bold lowercase leading-none tracking-tight text-main sm:text-8xl">{cur.title}</h1>
+          <div className="mt-6 flex flex-wrap items-center gap-4 font-mono text-xs text-sub">
+            <AudioBadge fmt={cur.fmt} playing={playing} />
+            <span>{cur.plays} plays</span><span>up next: <span className="text-foreground">{queue[0]?.title.toLowerCase() ?? "—"}</span></span>
+          </div>
+        </div>
+        <div className="relative mx-auto w-full max-w-3xl space-y-6">
+          <Seek /><div className="flex justify-center"><Controls big /></div>
         </div>
       </div>
     );
+  }
 
   const totalMin = Math.round(filtered.reduce((a, s) => a + s.dur, 0) / 60);
   return (
@@ -270,7 +300,7 @@ function App() {
 
         {/* Main */}
         <main className="relative flex min-w-0 flex-1 flex-col">
-          <header className="relative overflow-hidden border-b px-6 py-7"
+          <header className="titlebar relative overflow-hidden border-b px-6 py-7"
             style={{ background: `linear-gradient(120deg, color-mix(in oklab, var(--main) 18%, transparent), transparent 70%)` }}>
             <div className={`pointer-events-none absolute inset-x-0 bottom-0 ${viz === "bars" ? "h-16 opacity-60" : "top-0 opacity-90"}`}><Visualizer playing={playing} bars={64} /></div>
             <div className="relative flex items-end justify-between gap-4">
@@ -295,15 +325,21 @@ function App() {
           </div>
 
           {/* Player bar */}
-          <footer className="glass flex items-center gap-4 border-t px-4 py-3 md:gap-6 md:px-5">
-            <div className="flex w-44 min-w-0 items-center gap-3 md:w-64"><Art album={cur.album} size={44} />
-              <div className="min-w-0"><div className="truncate text-sm font-medium">{cur.title}</div><div className="truncate text-xs text-sub">{cur.artist}</div></div></div>
-            <div className="flex flex-1 flex-col items-center gap-1"><Controls /><Seek /></div>
+          <footer className="glass relative flex items-center gap-4 overflow-hidden border-t px-4 py-3 md:gap-6 md:px-5">
+            <div className="pointer-events-none absolute inset-0 transition-[background] duration-1000"
+              style={{ background: `radial-gradient(40% 140% at 6% 50%, hsl(${hue(cur.album)} 65% 50% / ${playing ? 0.35 : 0.18}), transparent 70%)` }} />
+            <div className="relative flex w-48 min-w-0 items-center gap-3 md:w-72"><VinylArt album={cur.album} size={44} playing={playing} />
+              <div className="min-w-0"><div className="truncate text-sm font-medium">{cur.title}</div><div className="truncate text-xs text-sub">{cur.artist}</div>
+                <div className="mt-0.5 hidden xl:block"><AudioBadge fmt={cur.fmt} playing={playing} /></div></div></div>
+            <div className="relative flex flex-1 flex-col items-center gap-1"><Controls /><Seek /></div>
+            <div className="relative hidden md:block"><VuMeter playing={playing} vol={vol} /></div>
             <div className="hidden w-36 items-center gap-2 text-sub lg:flex"><Volume2 size={15} /><input type="range" value={vol} onChange={(e) => setVol(+e.target.value)} className="flex-1 accent-[var(--main)]" /></div>
-            <button onClick={() => setMode("mini")} title="Mini player" className="text-sub hover:text-foreground"><Minimize2 size={15} /></button>
-            <button onClick={() => setMode("full")} title="Full screen" className="text-sub hover:text-foreground"><Maximize2 size={15} /></button>
+            <button onClick={() => setEqOpen(!eqOpen)} title="Equalizer" className={`relative ${eqOpen ? "text-main" : "text-sub hover:text-foreground"}`}><SlidersHorizontal size={15} /></button>
+            <button onClick={() => setMode("mini")} title="Mini player" className="relative text-sub hover:text-foreground"><Minimize2 size={15} /></button>
+            <button onClick={() => setMode("full")} title="Full screen" className="relative text-sub hover:text-foreground"><Maximize2 size={15} /></button>
           </footer>
 
+          {eqOpen && <EqPopover onClose={() => setEqOpen(false)} />}
           {themeOpen && (
             <div className="glass window-shadow absolute bottom-24 left-4 w-64 rounded-lg p-2" onMouseLeave={() => setHoverTheme(null)}>
               <div className="px-2 pb-1 text-[11px] text-sub">Hover to preview, click to keep</div>
