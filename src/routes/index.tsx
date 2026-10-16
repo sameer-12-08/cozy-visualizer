@@ -3,7 +3,7 @@ import { Visualizer as Bars } from "@/components/Visualizer";
 import { Embers } from "@/components/Embers";
 import { hue, artBg, VinylArt, VuMeter, EqPopover, AudioBadge } from "@/components/Extras";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { SkipBack, SkipForward, Play, Pause, Music, Disc3, Mic2, Folder, Flame, Search, ListMusic, Plus, Palette, Volume2, CornerDownRight, X, ArrowUp, Minimize2, Maximize2, Sparkles, AudioLines, SlidersHorizontal } from "lucide-react";
+import { SkipBack, SkipForward, Play, Pause, Music, Disc3, Mic2, Folder, Flame, Search, ListMusic, Plus, Palette, Volume2, VolumeX, CornerDownRight, X, ArrowUp, Minimize2, Maximize2, Sparkles, AudioLines, SlidersHorizontal, Shuffle, Repeat, Repeat1, Trash2 } from "lucide-react";
 
 const VIEW_ICONS = { Songs: Music, Albums: Disc3, Artists: Mic2, Folders: Folder, "Most Played": Flame } as const;
 
@@ -35,7 +35,7 @@ const THEMES: Theme[] = [
   { name: "lavender", bg: "#ada6c2", main: "#e4e3e9", caption: "#e4e3e9", text: "#2f2a41", sub: "#e4e3e9", subalt: "#a19ab7", error: "#da3333" },
 ];
 
-type Song = { id: number; title: string; artist: string; album: string; folder: string; dur: number; fmt: string; plays: number };
+type Song = { id: number; title: string; artist: string; album: string; folder: string; dur: number; fmt: string; plays: number; src?: string };
 const RAW: [string, string, string, number, string][] = [
   ["So What", "Miles Davis", "Kind of Blue", 562, "FLAC 24/96"],
   ["Freddie Freeloader", "Miles Davis", "Kind of Blue", 586, "FLAC 24/96"],
@@ -83,21 +83,79 @@ function Visualizer({ viz, playing, bars, ambient = false }: {
   );
 }
 
+/** Module-level so the hover tooltip survives the 1s playback re-render. */
+function Seek({ pos, dur, onSeek }: { pos: number; dur: number; onSeek: (v: number) => void }) {
+  const [hov, setHov] = useState<{ x: number; t: number } | null>(null);
+  return (
+    <div className="flex w-full items-center gap-3 font-mono text-xs text-sub">
+      <span className="w-9 text-right">{fmt(pos)}</span>
+      <div className="relative flex-1">
+        {hov && dur > 0 && (
+          <div className="pointer-events-none absolute -top-7 -translate-x-1/2 whitespace-nowrap rounded border bg-subalt px-1.5 py-0.5 font-mono text-[10px] text-foreground shadow-lg"
+            style={{ left: hov.x }}>{fmt(hov.t)}</div>
+        )}
+        <input type="range" min={0} max={Math.max(dur, 1)} value={Math.min(pos, dur)} onChange={(e) => onSeek(+e.target.value)}
+          onMouseMove={(e) => { const r = e.currentTarget.getBoundingClientRect(); const ratio = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)); setHov({ x: ratio * r.width, t: Math.round(ratio * dur) }); }}
+          onMouseLeave={() => setHov(null)}
+          className="w-full accent-[var(--main)]" />
+      </div>
+      <span className="w-9">-{fmt(Math.max(dur - pos, 0))}</span>
+    </div>
+  );
+}
+
+const SHORTCUTS: [string, string][] = [
+  ["Space", "Play / pause"],
+  ["F7 / F9", "Previous / next"],
+  ["/", "Search"],
+  ["V", "Switch visualizer"],
+  ["S", "Shuffle"],
+  ["R", "Repeat mode"],
+  ["M", "Mute"],
+  ["Esc", "Close / exit full screen"],
+  ["?", "This card"],
+];
+
+function ShortcutHud({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
+      <div className="glass window-shadow w-72 rounded-xl p-4" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-3 flex items-center justify-between">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-sub">Keyboard shortcuts</span>
+          <button onClick={onClose} className="text-sub hover:text-foreground"><X size={14} /></button>
+        </div>
+        {SHORTCUTS.map(([k, d]) => (
+          <div key={k} className="flex items-center justify-between py-1 text-xs">
+            <span className="text-sub">{d}</span>
+            <kbd className="rounded border bg-background/60 px-1.5 py-0.5 font-mono text-[10px] text-foreground">{k}</kbd>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const [theme, setTheme] = useState(0);
   const [hoverTheme, setHoverTheme] = useState<number | null>(null);
   const [view, setView] = useState<View>("Songs");
   const [q, setQ] = useState("");
+  const [lib, setLib] = useState<Song[]>(SONGS);
   const [cur, setCur] = useState<Song>(SONGS[3]!);
   const [playing, setPlaying] = useState(false);
   const [pos, setPos] = useState(64);
   const [vol, setVol] = useState(70);
+  const [muted, setMuted] = useState(false);
+  const [shuffle, setShuffle] = useState(false);
+  const [repeat, setRepeat] = useState<"off" | "all" | "one">("off");
   const [queue, setQueue] = useState<Song[]>(SONGS.slice(4, 8));
   const [showQueue, setShowQueue] = useState(true);
   const [mode, setMode] = useState<"window" | "mini" | "full">("window");
   const [themeOpen, setThemeOpen] = useState(false);
   const [toast, setToast] = useState("");
   const [eqOpen, setEqOpen] = useState(false);
+  const [hudOpen, setHudOpen] = useState(false);
+  const [albumSel, setAlbumSel] = useState<string | null>(null);
   const [viz, setViz] = useState<Viz>("bars");
   useEffect(() => { const v = localStorage.getItem("qm-viz"); if (v === "embers") setViz(v); }, []);
   useEffect(() => { localStorage.setItem("qm-viz", viz); }, [viz]);
@@ -115,25 +173,80 @@ function App() {
   const t = THEMES[hoverTheme ?? theme]!;
   const vars = { "--bg": t.bg, "--main": t.main, "--caption": t.caption, "--text": t.text, "--sub": t.sub, "--subalt": t.subalt, "--error": t.error } as React.CSSProperties;
 
+  // Persistent audio element for real (dropped) files; demo tracks stay simulated.
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  if (!audioRef.current && typeof window !== "undefined") audioRef.current = new Audio();
+
+  const play = (s: Song) => { setCur(s); setPos(0); setPlaying(true); };
+  const next = () => {
+    if (repeat === "one") { doSeek(0); return; }
+    if (shuffle && queue.length > 1) {
+      const i = Math.floor(Math.random() * queue.length);
+      play(queue[i]!); setQueue(queue.filter((_, j) => j !== i)); return;
+    }
+    if (queue[0]) { play(queue[0]); setQueue(queue.slice(1)); }
+    else if (repeat === "all") doSeek(0);
+    else setPlaying(false);
+  };
+  const advanceRef = useRef(next);
+  advanceRef.current = next;
+  const prev = () => {
+    if (pos > 3) { doSeek(0); return; }
+    const i = lib.findIndex((s) => s.id === cur.id);
+    play(lib[(i - 1 + lib.length) % lib.length]!);
+  };
+  const flash = (m: string) => { setToast(m); setTimeout(() => setToast(""), 1400); };
+  function doSeek(v: number) {
+    setPos(v);
+    const a = audioRef.current;
+    if (a && cur.src) a.currentTime = v;
+  }
+
+  // Simulated clock for demo tracks only.
   useEffect(() => {
-    if (!playing) return;
-    const i = setInterval(() => setPos((p) => (p + 1 >= cur.dur ? 0 : p + 1)), 1000);
+    if (!playing || cur.src) return;
+    const i = setInterval(() => setPos((p) => (p + 1 >= cur.dur ? (advanceRef.current(), p) : p + 1)), 1000);
     return () => clearInterval(i);
   }, [playing, cur]);
 
-  const play = (s: Song) => { setCur(s); setPos(0); setPlaying(true); };
-  const next = () => { if (queue[0]) { play(queue[0]); setQueue(queue.slice(1)); } };
-  const prev = () => { const i = SONGS.findIndex((s) => s.id === cur.id); play(SONGS[(i - 1 + SONGS.length) % SONGS.length]!); };
-  const flash = (m: string) => { setToast(m); setTimeout(() => setToast(""), 1400); };
+  // Wire the audio element to the current real track.
+  useEffect(() => {
+    const a = audioRef.current;
+    if (!a) return;
+    if (cur.src) { if (a.src !== cur.src) a.src = cur.src; }
+    else { a.pause(); a.removeAttribute("src"); }
+  }, [cur]);
+  useEffect(() => {
+    const a = audioRef.current;
+    if (!a || !cur.src) return;
+    if (playing) void a.play().catch(() => setPlaying(false));
+    else a.pause();
+  }, [playing, cur]);
+  useEffect(() => { const a = audioRef.current; if (a) a.volume = (muted ? 0 : vol) / 100; }, [vol, muted]);
+  useEffect(() => {
+    const a = audioRef.current;
+    if (!a) return;
+    const tu = () => setPos(Math.floor(a.currentTime));
+    const en = () => advanceRef.current();
+    const md = () => { const d = Math.floor(a.duration); if (d > 0 && cur.src) setLib((l) => l.map((s) => (s.src === cur.src ? { ...s, dur: d } : s))); };
+    a.addEventListener("timeupdate", tu);
+    a.addEventListener("ended", en);
+    a.addEventListener("loadedmetadata", md);
+    return () => { a.removeEventListener("timeupdate", tu); a.removeEventListener("ended", en); a.removeEventListener("loadedmetadata", md); };
+  }, [cur]);
 
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
       const typing = (e.target as HTMLElement).tagName === "INPUT";
       if (e.key === "/" && !typing) { e.preventDefault(); searchRef.current?.focus(); }
-      else if (e.key === "Escape") { searchRef.current?.blur(); if (mode === "full") setMode("window"); setThemeOpen(false); }
+      else if (e.key === "Escape") { searchRef.current?.blur(); if (mode === "full") setMode("window"); setThemeOpen(false); setHudOpen(false); setAlbumSel(null); }
       else if (e.key === "F8" || (e.key === " " && !typing)) { e.preventDefault(); setPlaying((p) => !p); }
       else if (e.key === "F9") next();
       else if ((e.key === "v" || e.key === "V") && !typing) setViz((v) => (v === "bars" ? "embers" : "bars"));
+      else if ((e.key === "s" || e.key === "S") && !typing) setShuffle((s) => !s);
+      else if ((e.key === "r" || e.key === "R") && !typing) setRepeat((r) => (r === "off" ? "all" : r === "all" ? "one" : "off"));
+      else if ((e.key === "m" || e.key === "M") && !typing) setMuted((m) => !m);
+      else if (e.key === "?" && !typing) setHudOpen((h) => !h);
       else if (e.key === "F7") prev();
     };
     window.addEventListener("keydown", k);
@@ -142,9 +255,9 @@ function App() {
 
   const filtered = useMemo(() => {
     const s = q.toLowerCase();
-    const list = SONGS.filter((x) => !s || [x.title, x.artist, x.folder].some((f) => f.toLowerCase().includes(s)));
+    const list = lib.filter((x) => !s || [x.title, x.artist, x.folder].some((f) => f.toLowerCase().includes(s)));
     return view === "Most Played" ? [...list].sort((a, b) => b.plays - a.plays) : list;
-  }, [q, view]);
+  }, [q, view, lib]);
 
   const groups = (key: "album" | "artist" | "folder") => {
     const m = new Map<string, Song[]>();
@@ -152,21 +265,46 @@ function App() {
     return [...m.entries()];
   };
 
+  const shuffleRefill = () => {
+    const shuffled = [...lib].sort(() => Math.random() - 0.5).slice(0, 8);
+    setQueue(shuffled);
+    flash(`Queue refilled with ${shuffled.length} shuffled tracks`);
+  };
+
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const files = [...e.dataTransfer.files].filter((f) => /\.(mp3|flac|wav|m4a|ogg|aac)$/i.test(f.name));
+    if (!files.length) { flash("No audio files found (mp3, flac, wav, m4a, ogg)"); return; }
+    const news: Song[] = files.map((f, i) => ({
+      id: 100000 + Date.now() + i,
+      title: f.name.replace(/\.[^.]+$/, ""),
+      artist: "Local files",
+      album: "Dropped",
+      folder: "(dropped files)",
+      dur: 0,
+      fmt: f.name.split(".").pop()!.toUpperCase(),
+      plays: 0,
+      src: URL.createObjectURL(f),
+    }));
+    setLib((l) => [...l, ...news]);
+    setQueue((qu) => [...qu, ...news]);
+    flash(`Added ${news.length} file${news.length > 1 ? "s" : ""} to library & queue`);
+  };
+
   const Controls = ({ big = false }: { big?: boolean }) => (
-    <div className={`flex items-center ${big ? "gap-10" : "gap-5"}`}>
+    <div className={`flex items-center ${big ? "gap-8" : "gap-4"}`}>
+      <button onClick={() => setShuffle(!shuffle)} title={`Shuffle ${shuffle ? "on" : "off"} (S)`}
+        className={`transition hover:scale-110 ${shuffle ? "text-main" : "text-sub hover:text-foreground"}`}><Shuffle size={big ? 18 : 14} /></button>
       <button onClick={prev} className="text-sub transition hover:scale-110 hover:text-foreground" title="Previous (F7)"><SkipBack size={big ? 32 : 18} fill="currentColor" /></button>
       <button onClick={() => setPlaying(!playing)} title="Play/Pause (F8)"
         className={`grid place-items-center rounded-full bg-main text-background shadow-lg transition hover:scale-105 active:scale-95 ${big ? "h-16 w-16" : "h-9 w-9"}`}>
         {playing ? <Pause size={big ? 28 : 16} fill="currentColor" /> : <Play size={big ? 28 : 16} fill="currentColor" className="ml-0.5" />}
       </button>
       <button onClick={next} className="text-sub transition hover:scale-110 hover:text-foreground" title="Next (F9)"><SkipForward size={big ? 32 : 18} fill="currentColor" /></button>
-    </div>
-  );
-  const Seek = () => (
-    <div className="flex w-full items-center gap-3 font-mono text-xs text-sub">
-      <span>{fmt(pos)}</span>
-      <input type="range" min={0} max={cur.dur} value={pos} onChange={(e) => setPos(+e.target.value)} className="flex-1 accent-[var(--main)]" />
-      <span>-{fmt(cur.dur - pos)}</span>
+      <button onClick={() => setRepeat(repeat === "off" ? "all" : repeat === "all" ? "one" : "off")} title={`Repeat: ${repeat} (R)`}
+        className={`relative transition hover:scale-110 ${repeat !== "off" ? "text-main" : "text-sub hover:text-foreground"}`}>
+        {repeat === "one" ? <Repeat1 size={big ? 18 : 14} /> : <Repeat size={big ? 18 : 14} />}
+      </button>
     </div>
   );
   const Lights = ({ onGreen }: { onGreen?: () => void }) => (
@@ -177,6 +315,20 @@ function App() {
           <span className="opacity-0 transition group-hover/lights:opacity-100" style={{ color: "oklch(0 0 0 / 0.55)" }}>{sym}</span>
         </button>
       ))}
+    </div>
+  );
+
+  const VolumeGroup = () => (
+    <div className="group/vol relative flex items-center gap-2 text-sub">
+      <button onClick={() => setMuted(!muted)} title={muted ? "Unmute (M)" : "Mute (M)"} className="hover:text-foreground">
+        {muted || vol === 0 ? <VolumeX size={15} className={muted ? "text-error" : ""} /> : <Volume2 size={15} />}
+      </button>
+      <input type="range" value={muted ? 0 : vol} onChange={(e) => { setVol(+e.target.value); setMuted(false); }}
+        className="hidden w-28 accent-[var(--main)] xl:block" />
+      {/* Popover slider for smaller screens */}
+      <div className="glass window-shadow pointer-events-none absolute -top-12 left-1/2 -translate-x-1/2 rounded-full px-3 py-2 opacity-0 transition group-hover/vol:pointer-events-auto group-hover/vol:opacity-100 xl:hidden">
+        <input type="range" value={muted ? 0 : vol} onChange={(e) => { setVol(+e.target.value); setMuted(false); }} className="w-24 accent-[var(--main)]" />
+      </div>
     </div>
   );
 
@@ -197,7 +349,7 @@ function App() {
           <button title="Play next" onClick={() => { setQueue([s, ...queue]); flash(`Playing next: ${s.title}`); }} className="text-sub hover:text-main"><CornerDownRight size={14} /></button>
           <button title="Add to queue" onClick={() => { setQueue([...queue, s]); flash(`Queued: ${s.title}`); }} className="text-sub hover:text-main"><Plus size={14} /></button>
         </span>
-        <span className="text-right font-mono text-xs text-sub">{fmt(s.dur)}</span>
+        <span className="text-right font-mono text-xs text-sub">{s.dur > 0 ? fmt(s.dur) : "—"}</span>
       </div>
     );
   };
@@ -208,7 +360,7 @@ function App() {
       return (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-5">
           {groups("album").map(([a, ss]) => (
-            <button key={a} onClick={() => { play(ss[0]!); setQueue(ss.slice(1)); flash(`Playing album ${a}`); }} className="text-left">
+            <button key={a} onClick={() => setAlbumSel(a)} className="text-left">
               <Art album={a} size={150} />
               <div className="mt-2 truncate text-sm">{a}</div>
               <div className="truncate text-xs text-sub">{ss[0]?.artist} · {ss.length} songs</div>
@@ -229,6 +381,36 @@ function App() {
     );
   };
 
+  const albumSongs = albumSel ? lib.filter((s) => s.album === albumSel) : [];
+  const AlbumDrawer = () => (
+    <div className="glass window-shadow absolute inset-y-4 right-4 z-20 flex w-80 max-w-[85%] flex-col rounded-xl p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <Art album={albumSel!} size={48} />
+          <div className="min-w-0">
+            <div className="truncate text-sm font-semibold">{albumSel}</div>
+            <div className="truncate text-xs text-sub">{albumSongs[0]?.artist} · {albumSongs.length} songs</div>
+          </div>
+        </div>
+        <button onClick={() => setAlbumSel(null)} className="text-sub hover:text-foreground"><X size={15} /></button>
+      </div>
+      <button onClick={() => { if (albumSongs[0]) { play(albumSongs[0]); setQueue(albumSongs.slice(1)); setAlbumSel(null); flash(`Playing album ${albumSel}`); } }}
+        className="mt-3 flex items-center justify-center gap-1.5 rounded-full bg-main py-1.5 text-sm font-medium text-background transition hover:scale-[1.02]">
+        <Play size={14} fill="currentColor" />Play album
+      </button>
+      <div className="mt-3 flex-1 overflow-auto">
+        {albumSongs.map((s, i) => (
+          <button key={s.id} onClick={() => { play(s); setQueue(albumSongs.slice(i + 1)); setAlbumSel(null); }}
+            className={`group flex w-full items-center gap-3 rounded-md px-2 py-1.5 text-left text-sm transition ${s.id === cur.id ? "bg-main/15 text-main" : "hover:bg-background/40"}`}>
+            <span className="w-5 font-mono text-xs text-sub">{i + 1}</span>
+            <span className="min-w-0 flex-1 truncate">{s.title}</span>
+            <span className="font-mono text-xs text-sub">{s.dur > 0 ? fmt(s.dur) : "—"}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
   if (mode === "mini")
     return (
       <div style={vars} className="grid min-h-screen place-items-start justify-center pt-10">
@@ -243,7 +425,7 @@ function App() {
           <div className="grid grid-rows-[0fr] transition-all duration-500 group-hover/island:grid-rows-[1fr]">
             <div className="min-h-0 overflow-hidden">
               <div className="space-y-3 px-2 pb-2 pt-4">
-                <Seek />
+                <Seek pos={pos} dur={cur.dur} onSeek={doSeek} />
                 <div className="flex items-center justify-between">
                   <AudioBadge fmt={cur.fmt} playing={playing} />
                   <Controls />
@@ -256,6 +438,7 @@ function App() {
             </div>
           </div>
         </div>
+        {hudOpen && <ShortcutHud onClose={() => setHudOpen(false)} />}
       </div>
     );
 
@@ -266,6 +449,9 @@ function App() {
         <div className="pointer-events-none absolute inset-0 transition-[background] duration-1000"
           style={{ background: `radial-gradient(60% 50% at 20% 30%, hsl(${h} 60% 45% / 0.35), transparent 70%), radial-gradient(50% 40% at 85% 80%, color-mix(in oklab, var(--main) 25%, transparent), transparent 70%)` }} />
         <div className="pointer-events-none absolute inset-0 opacity-70"><Visualizer viz={viz} playing={playing} bars={80} ambient /></div>
+        {/* Scrim so text and controls stay legible over the visualizer */}
+        <div className="pointer-events-none absolute inset-0"
+          style={{ background: "linear-gradient(to top, color-mix(in oklab, var(--bg) 88%, transparent), transparent 45%), linear-gradient(to bottom, color-mix(in oklab, var(--bg) 75%, transparent), transparent 28%)" }} />
         <div className="relative flex items-center justify-between font-mono text-xs text-sub">
           <span>quickmusic / now playing</span>
           <div className="flex items-center gap-3"><VizToggle /><button onClick={() => setMode("window")} className="hover:text-foreground">esc</button></div>
@@ -279,8 +465,9 @@ function App() {
           </div>
         </div>
         <div className="relative mx-auto w-full max-w-3xl space-y-6">
-          <Seek /><div className="flex justify-center"><Controls big /></div>
+          <Seek pos={pos} dur={cur.dur} onSeek={doSeek} /><div className="flex justify-center"><Controls big /></div>
         </div>
+        {hudOpen && <ShortcutHud onClose={() => setHudOpen(false)} />}
       </div>
     );
   }
@@ -309,8 +496,9 @@ function App() {
             );
           })}
           <div className="mt-auto space-y-1">
-            <button onClick={() => flash("Open panel: choose files or folder…")} className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-sm text-sub hover:text-foreground"><Plus size={15} />Add Songs / Folder</button>
+            <button onClick={() => flash("Drag & drop audio files anywhere in the window")} className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-sm text-sub hover:text-foreground"><Plus size={15} />Add Songs / Folder</button>
             <button onClick={() => setThemeOpen(!themeOpen)} className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-sm text-sub hover:text-foreground"><Palette size={15} />{THEMES[theme]?.name}</button>
+            <button onClick={() => setHudOpen(true)} className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-sm text-sub hover:text-foreground"><kbd className="rounded border px-1 font-mono text-[10px]">?</kbd>Shortcuts</button>
           </div>
         </aside>
 
@@ -335,7 +523,7 @@ function App() {
             </div>
           </header>
           <div className="flex-1 overflow-auto px-4 py-3"
-            onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); flash("Dropped files added to library"); }}>
+            onDragOver={(e) => e.preventDefault()} onDrop={onDrop}>
             <Content />
             {filtered.length === 0 && <div className="mt-20 text-center text-sub">No results for “{q}”</div>}
           </div>
@@ -344,18 +532,19 @@ function App() {
           <footer className="glass relative flex items-center gap-4 overflow-hidden border-t px-4 py-3 md:gap-6 md:px-5">
             <div className="pointer-events-none absolute inset-0 transition-[background] duration-1000"
               style={{ background: `radial-gradient(40% 140% at 6% 50%, hsl(${hue(cur.album)} 65% 50% / ${playing ? 0.35 : 0.18}), transparent 70%)` }} />
-            <div className="relative flex w-48 min-w-0 items-center gap-3 md:w-72"><VinylArt album={cur.album} size={44} playing={playing} />
+            <div className="relative flex w-40 min-w-0 shrink items-center gap-3 sm:w-56 lg:w-72"><VinylArt album={cur.album} size={44} playing={playing} />
               <div className="min-w-0"><div className="truncate text-sm font-medium">{cur.title}</div><div className="truncate text-xs text-sub">{cur.artist}</div>
                 <div className="mt-0.5 hidden xl:block"><AudioBadge fmt={cur.fmt} playing={playing} /></div></div></div>
-            <div className="relative flex flex-1 flex-col items-center gap-1"><Controls /><Seek /></div>
-            <div className="relative hidden md:block"><VuMeter playing={playing} vol={vol} /></div>
-            <div className="hidden w-36 items-center gap-2 text-sub lg:flex"><Volume2 size={15} /><input type="range" value={vol} onChange={(e) => setVol(+e.target.value)} className="flex-1 accent-[var(--main)]" /></div>
+            <div className="relative flex min-w-0 flex-1 flex-col items-center gap-1"><Controls /><Seek pos={pos} dur={cur.dur} onSeek={doSeek} /></div>
+            <div className="relative hidden xl:block"><VuMeter playing={playing} vol={muted ? 0 : vol} /></div>
+            <VolumeGroup />
             <button onClick={() => setEqOpen(!eqOpen)} title="Equalizer" className={`relative ${eqOpen ? "text-main" : "text-sub hover:text-foreground"}`}><SlidersHorizontal size={15} /></button>
             <button onClick={() => setMode("mini")} title="Mini player" className="relative text-sub hover:text-foreground"><Minimize2 size={15} /></button>
             <button onClick={() => setMode("full")} title="Full screen" className="relative text-sub hover:text-foreground"><Maximize2 size={15} /></button>
           </footer>
 
           {eqOpen && <EqPopover onClose={() => setEqOpen(false)} />}
+          {albumSel && <AlbumDrawer />}
           {themeOpen && (
             <div className="glass window-shadow absolute bottom-24 left-4 w-64 rounded-lg p-2" onMouseLeave={() => setHoverTheme(null)}>
               <div className="px-2 pb-1 text-[11px] text-sub">Hover to preview, click to keep</div>
@@ -375,20 +564,32 @@ function App() {
           <aside className="glass hidden w-64 shrink-0 overflow-auto border-l p-3 lg:block">
             <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-sub">Now Playing</div>
             <div className="flex items-center gap-2 rounded-md bg-main/15 p-2"><Art album={cur.album} size={32} /><div className="min-w-0 text-xs"><div className="truncate text-main">{cur.title}</div><div className="truncate text-sub">{cur.artist}</div></div></div>
-            <div className="mb-2 mt-4 text-[11px] font-semibold uppercase tracking-wider text-sub">Up Next · {queue.length}</div>
+            <div className="mb-2 mt-4 flex items-center justify-between">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-sub">Up Next · {queue.length}</span>
+              {queue.length > 0 && (
+                <button onClick={() => { setQueue([]); flash("Queue cleared"); }} title="Clear queue" className="text-sub hover:text-error"><Trash2 size={13} /></button>
+              )}
+            </div>
+            {queue.length === 0 && (
+              <button onClick={shuffleRefill} className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed py-3 text-xs text-sub transition hover:border-main hover:text-main">
+                <Shuffle size={13} />Shuffle &amp; refill
+              </button>
+            )}
             {queue.map((s, i) => (
-              <div key={i} className="group flex items-center gap-2 rounded-md p-1.5 text-xs hover:bg-background/40">
+              <div key={`${s.id}-${i}`} onClick={() => { play(s); setQueue(queue.filter((_, j) => j !== i)); }} title="Play now"
+                className="group flex cursor-pointer items-center gap-2 rounded-md p-1.5 text-xs hover:bg-background/40">
                 <Art album={s.album} size={28} />
                 <div className="min-w-0 flex-1"><div className="truncate">{s.title}</div><div className="truncate text-sub">{s.album}</div></div>
                 <span className="hidden gap-1 group-hover:flex">
-                  <button disabled={i === 0} onClick={() => { const n = [...queue]; const a = n[i - 1]!; n[i - 1] = n[i]!; n[i] = a; setQueue(n); }} className="text-sub hover:text-main"><ArrowUp size={12} /></button>
-                  <button onClick={() => setQueue(queue.filter((_, j) => j !== i))} className="text-sub hover:text-error"><X size={12} /></button>
+                  <button disabled={i === 0} onClick={(e) => { e.stopPropagation(); const n = [...queue]; const a = n[i - 1]!; n[i - 1] = n[i]!; n[i] = a; setQueue(n); }} className="text-sub hover:text-main"><ArrowUp size={12} /></button>
+                  <button onClick={(e) => { e.stopPropagation(); setQueue(queue.filter((_, j) => j !== i)); }} className="text-sub hover:text-error"><X size={12} /></button>
                 </span>
               </div>
             ))}
           </aside>
         )}
       </div>
+      {hudOpen && <ShortcutHud onClose={() => setHudOpen(false)} />}
     </div>
   );
 }
