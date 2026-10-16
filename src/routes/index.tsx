@@ -536,11 +536,11 @@ function App() {
               <div className="min-w-0"><div className="truncate text-sm font-medium">{cur.title}</div><div className="truncate text-xs text-sub">{cur.artist}</div>
                 <div className="mt-0.5 hidden xl:block"><AudioBadge fmt={cur.fmt} playing={playing} /></div></div></div>
             <div className="relative flex min-w-0 flex-1 flex-col items-center gap-1"><Controls /><Seek pos={pos} dur={cur.dur} onSeek={doSeek} /></div>
-            <div className="relative hidden xl:block"><VuMeter playing={playing} vol={muted ? 0 : vol} /></div>
-            <VolumeGroup />
-            <button onClick={() => setEqOpen(!eqOpen)} title="Equalizer" className={`relative ${eqOpen ? "text-main" : "text-sub hover:text-foreground"}`}><SlidersHorizontal size={15} /></button>
-            <button onClick={() => setMode("mini")} title="Mini player" className="relative text-sub hover:text-foreground"><Minimize2 size={15} /></button>
-            <button onClick={() => setMode("full")} title="Full screen" className="relative text-sub hover:text-foreground"><Maximize2 size={15} /></button>
+            <div className="relative hidden shrink-0 2xl:block"><VuMeter playing={playing} vol={muted ? 0 : vol} /></div>
+            <div className="relative shrink-0"><VolumeGroup /></div>
+            <button onClick={() => setEqOpen(!eqOpen)} title="Equalizer" className={`relative shrink-0 ${eqOpen ? "text-main" : "text-sub hover:text-foreground"}`}><SlidersHorizontal size={15} /></button>
+            <button onClick={() => setMode("mini")} title="Mini player" className="relative shrink-0 text-sub hover:text-foreground"><Minimize2 size={15} /></button>
+            <button onClick={() => setMode("full")} title="Full screen" className="relative shrink-0 text-sub hover:text-foreground"><Maximize2 size={15} /></button>
           </footer>
 
           {eqOpen && <EqPopover onClose={() => setEqOpen(false)} />}
