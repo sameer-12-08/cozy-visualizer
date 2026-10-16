@@ -12,8 +12,10 @@ export function Visualizer({ playing, bars = 48, className = "" }: { playing: bo
     const ctx = c.getContext("2d")!;
     let mx = -1, my = -1, raf = 0, energy = 0;
     const h = new Array(bars).fill(0);
-    const host = c.parentElement ?? c;
-    const move = (e: PointerEvent) => { const r = c.getBoundingClientRect(); mx = (e.clientX - r.left) / r.width; my = (e.clientY - r.top) / r.height; };
+    const host = window;
+    const move = (e: PointerEvent) => { const r = c.getBoundingClientRect(); const pad = 60;
+      if (e.clientX < r.left - pad || e.clientX > r.right + pad || e.clientY < r.top - pad * 2 || e.clientY > r.bottom + pad) { mx = -1; return; }
+      mx = (e.clientX - r.left) / r.width; my = (e.clientY - r.top) / r.height; };
     const leave = () => { mx = -1; };
     host.addEventListener("pointermove", move);
     host.addEventListener("pointerleave", leave);
@@ -29,7 +31,7 @@ export function Visualizer({ playing, bars = 48, className = "" }: { playing: bo
       const sub = cs.getPropertyValue("--sub").trim() || "#646669";
       energy += ((playRef.current ? 1 : 0.15) - energy) * 0.05;
       const t = time / 1000, gap = 3, bw = (w - gap * (bars - 1)) / bars;
-      const lift = mx >= 0 ? 1 + Math.max(0, 1 - Math.abs(my - 0.5)) * 0.6 : 1;
+      const lift = mx >= 0 ? 1 + Math.max(0, 1 - Math.abs(my - 0.5) / 2) * 0.6 : 1;
       for (let i = 0; i < bars; i++) {
         const x = i / (bars - 1);
         const wave = 0.35 + 0.3 * Math.sin(t * 3 + i * 0.45) * Math.sin(t * 1.7 + i * 0.13) + 0.25 * Math.sin(t * 5.3 + i * 1.1);
