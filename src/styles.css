@@ -37,3 +37,8 @@
 @utility window-shadow {
   box-shadow: 0 30px 80px -20px oklch(0 0 0 / 0.6), 0 0 0 1px oklch(1 0 0 / 0.08);
 }
+@utility window-highlight {
+  box-shadow: 0 30px 80px -20px oklch(0 0 0 / 0.6), 0 0 0 1px oklch(1 0 0 / 0.08), inset 0 1px 0 oklch(1 0 0 / 0.08);
+}
+body { background: radial-gradient(ellipse at top, color-mix(in oklab, var(--main) 10%, oklch(0.2 0.02 260)), oklch(0.14 0.02 260) 70%) fixed; }
+::-webkit-scrollbar { width: 8px; } ::-webkit-scrollbar-thumb { background: color-mix(in oklab, var(--sub) 35%, transparent); border-radius: 8px; }
