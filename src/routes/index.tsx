@@ -83,8 +83,8 @@ function App() {
   const [viz, setViz] = useState<"bars" | "embers">("bars");
   useEffect(() => { const v = localStorage.getItem("qm-viz"); if (v === "embers") setViz(v); }, []);
   useEffect(() => { localStorage.setItem("qm-viz", viz); }, [viz]);
-  const Visualizer = ({ playing, bars }: { playing: boolean; bars?: number }) =>
-    viz === "bars" ? <Bars playing={playing} bars={bars ?? 48} /> : <Embers playing={playing} count={Math.max(30, (bars ?? 48))} />;
+  const Visualizer = ({ playing, bars, ambient }: { playing: boolean; bars?: number; ambient?: boolean }) =>
+    viz === "bars" ? <Bars playing={playing} bars={bars ?? 48} ambient={ambient} /> : <Embers playing={playing} count={Math.max(30, (bars ?? 48))} ambient={ambient} />;
   const VizToggle = () => (
     <button onClick={() => setViz(viz === "bars" ? "embers" : "bars")} title={`Visualizer: ${viz === "bars" ? "Bars" : "Embers"} (V)`}
       className="flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs text-sub transition hover:border-main hover:text-main">
@@ -249,7 +249,7 @@ function App() {
       <div style={vars} className="relative flex min-h-screen flex-col overflow-hidden bg-background p-8 sm:p-16">
         <div className="pointer-events-none absolute inset-0 transition-[background] duration-1000"
           style={{ background: `radial-gradient(60% 50% at 20% 30%, hsl(${h} 60% 45% / 0.35), transparent 70%), radial-gradient(50% 40% at 85% 80%, color-mix(in oklab, var(--main) 25%, transparent), transparent 70%)` }} />
-        <div className="pointer-events-none absolute inset-0 opacity-70"><Visualizer playing={playing} bars={80} /></div>
+        <div className="pointer-events-none absolute inset-0 opacity-70"><Visualizer playing={playing} bars={80} ambient /></div>
         <div className="relative flex items-center justify-between font-mono text-xs text-sub">
           <span>quickmusic / now playing</span>
           <div className="flex items-center gap-3"><VizToggle /><button onClick={() => setMode("window")} className="hover:text-foreground">esc</button></div>
